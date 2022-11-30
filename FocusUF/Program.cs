@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Security.Cryptography;
 
 // Started with the code posted here: https://stackoverflow.com/a/18189027/206
 
@@ -17,7 +18,9 @@ namespace FocusUF
         AutoExposure = 4,
         SetFocus = 5,
         SetExposure = 6,
-        ListCameras = 7
+        ListCameras = 7,
+        SetContrast = 8,
+        SetSharpness = 9,
     }
 
     class Program
@@ -27,6 +30,8 @@ namespace FocusUF
         static string _cameraName = "Microsoft® LifeCam"; // Assuming only one lifecam plugged in
         static int _focusSetting;
         static int _exposureSetting;
+        static int _contrastSetting;
+        static int _sharpnessSetting;
 
         static void Main(string[] args)
         {
@@ -42,6 +47,7 @@ namespace FocusUF
             {
                 _whatToDo = ProcessArgs(argsList);
                 IAMCameraControl camera;
+                IAMVideoProcAmp cameravideo;
                 switch (_whatToDo)
                 {
                     case Operation.Usage:
@@ -53,6 +59,12 @@ namespace FocusUF
                         {
                             Console.WriteLine($"Camera: {cam.Name}");
                             camera = GetCamera(cam);
+
+                            object o;
+                            Guid IID_IBaseFilter = new Guid("56a86895-0ad4-11ce-b03a-0020af0ba770");
+                            cam.Mon.BindToObject(null, null, ref IID_IBaseFilter, out o);
+                            cameravideo = (IAMVideoProcAmp)o;
+
                             if (camera != null)
                             {
                                 // Focus ranges and Values
@@ -66,6 +78,11 @@ namespace FocusUF
                                 Console.WriteLine($"    Exposure Capability: {expPossFlags}");
                                 Console.WriteLine($"    Exposure Range: {expMin} - {expMax}");
                                 Console.WriteLine($"    Exposure Setting: {expSetting}, {expValue}");
+
+                                cameravideo.Get(VideoProcAmpProperty.Contrast, out int contrast, out VideoProcAmpFlags contrastFlags);
+                                Console.WriteLine($"    Contrast setting: {contrast}, {contrastFlags}");
+                                cameravideo.Get(VideoProcAmpProperty.Sharpness, out int sharpness, out VideoProcAmpFlags sharpnessFlags);
+                                Console.WriteLine($"    Sharpness setting: {sharpness}, {sharpnessFlags}");
                             }
                             else
                             {
@@ -96,6 +113,14 @@ namespace FocusUF
 
                     case Operation.SetExposure:
                         SetCameraValue(devs, _cameraName, CameraControlProperty.Exposure, _exposureSetting);
+                        break;
+
+                    case Operation.SetContrast:
+                        SetCameraVideoValue(devs, _cameraName, VideoProcAmpProperty.Contrast, _contrastSetting);
+                        break;
+
+                    case Operation.SetSharpness:
+                        SetCameraVideoValue(devs, _cameraName, VideoProcAmpProperty.Sharpness, _sharpnessSetting);
                         break;
                 }
             }
@@ -179,6 +204,37 @@ namespace FocusUF
             }
         }
 
+        static void SetCameraVideoValue(DsDevice[] devs, string cameraName, VideoProcAmpProperty videoProperty, int val)
+        {
+            var cam = devs.Where(d => d.Name.ToLower().Contains(cameraName.ToLower())).FirstOrDefault();
+
+            object o;
+            Guid IID_IBaseFilter = new Guid("56a86895-0ad4-11ce-b03a-0020af0ba770");
+            cam.Mon.BindToObject(null, null, ref IID_IBaseFilter, out o);
+            IAMVideoProcAmp cameravideo = (IAMVideoProcAmp)o;
+
+            if (cameravideo != null)
+            {
+                // Get the current settings from the webcam
+                cameravideo.Get(videoProperty, out int v, out VideoProcAmpFlags f);
+
+                // If the camera value differs from the desired value, adjust it leaving flag the same.
+                if (v != val)
+                {
+                    cameravideo.Set(videoProperty, val, f);
+                    Console.WriteLine($"{cameraName} {videoProperty} value set to {val}");
+                }
+                else
+                {
+                    Console.WriteLine($"{cameraName} {videoProperty} value already {val}");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"No physical camera matching \"{cameraName}\" found");
+            }
+        }
+
         /// <summary>
         /// Split the argument list on "--and" into multiple lists
         /// </summary>
@@ -244,6 +300,21 @@ namespace FocusUF
             {
                 _exposureSetting = expVal;
                 return Operation.SetExposure;
+            }
+
+            var contrastSetArgIx = args.IndexOf("--set-contrast");
+            contrastSetArgIx = contrastSetArgIx != -1 ? contrastSetArgIx : args.IndexOf("-con");
+            if (contrastSetArgIx != -1 && args.Count >= contrastSetArgIx + 2 && int.TryParse(args[contrastSetArgIx + 1], out int conVal))
+            {
+                _contrastSetting = conVal;
+                return Operation.SetContrast;
+            }
+            var sharpnessSetArgIx = args.IndexOf("--set-sharpness");
+            sharpnessSetArgIx = sharpnessSetArgIx != -1 ? sharpnessSetArgIx : args.IndexOf("-sharp");
+            if (sharpnessSetArgIx != -1 && args.Count >= sharpnessSetArgIx + 2 && int.TryParse(args[sharpnessSetArgIx + 1], out int sharpVal))
+            {
+                _sharpnessSetting = sharpVal;
+                return Operation.SetSharpness;
             }
 
             return Operation.Usage;

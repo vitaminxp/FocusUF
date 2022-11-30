@@ -1,4 +1,9 @@
 # FocusUF
+This is modifed version of FocusUF (added -con for contrast and -sharp for sharpness).
+
+---
+
+
 Command line tool for locking the focus of ~~a Microsoft® LifeCam HD-5000 webcam~~ any webcam that supports IAMCameraControl control interface from DirectShowLib.
 
 The LifeCam HD-5000 webcam is a decent webcam with an annoying feature.  The autofocus keeps shifting the focus around if you move your head slightly.  When you are in a video chat with someone, this can get annoying for the other viewers.  Your face will shift in and out of focus.

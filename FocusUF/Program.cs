@@ -35,6 +35,7 @@ namespace FocusUF
 
         static void Main(string[] args)
         {
+            Console.OutputEncoding = System.Text.Encoding.UTF8; // Allows to print characters correctly, such as that (R) character after "Microsoft®"
             Console.WriteLine("FocusUF " + Assembly.GetEntryAssembly().GetName().Version);
             Console.WriteLine("Get the source at https://github.com/anotherlab/FocusUF");
 
